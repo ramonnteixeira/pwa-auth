@@ -5,83 +5,50 @@ export class GoogleProvider implements SignInProvider {
 
     static readonly apiUrl = "https://apis.google.com/js/api:client.js";
 
-    constructor(private clientId: string) {
+    constructor(private clientId: string, private clientSecret: string) {
     }
 
-    signIn(): Promise<SignInResult> {
-        return this.loadDependencies()
-            .then(() => this.signInWithGoogleAuth2());
+    async signIn(): Promise<SignInResult> {
+        try {
+
+            const code = new URLSearchParams(window.location.search).get('code')
+            const redirectUri = `${window.location.protocol}//${window.location.host}/`
+            if (code) {
+                const res = await fetch('https://oauth2.googleapis.com/token', {
+                    method: 'POST',
+                    headers: {
+                      'Accept': 'application/json',
+                      'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        code,
+                        client_id: this.clientId,
+                        client_secret: this.clientSecret,
+                        redirect_uri: redirectUri,
+                        grant_type: "authorization_code"
+    
+                    })
+                })
+                const user = await res.json()
+                return {
+                    accessToken: user.access_token,
+                    accessTokenExpiration: new Date(user.expires_at),
+                    provider: "Google",
+                    error: null,
+                    providerData: user
+                };
+            }
+    
+            window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id=${this.clientId}&redirect_uri=${redirectUri}&scope=profile%20email`
+            return { provider: 'Google', error: { name: 'waiting response', message: 'waiting server response' } }
+        } catch (error) {
+            console.log(error)
+            return { provider: 'Google', error: { name: 'Fail to google login', message: error.message } }
+        }
     }
 
     loadDependencies(): Promise<void> {
-        return this.appendGoogleScript()
-            .then(() => this.loadAuth());
+        return Promise.resolve()
     }
 
-    private appendGoogleScript(): Promise<void> {
-        const gapiLoad = window.gapi?.load;
-        if (!gapiLoad) {
-            return new Promise<void>((resolve, reject) => {
-                const scriptEl = window.document.createElement("script");
-                scriptEl.async = true;
-                scriptEl.src = GoogleProvider.apiUrl;
-                scriptEl.onload = () => resolve();
-                scriptEl.onerror = (error) => reject({ message: "Error loading Google Platform library", error: error });
-                window.document.head.appendChild(scriptEl);
-            });
-        } 
-
-        // GApi is already loaded.
-        return Promise.resolve();
-    }
-
-    private loadAuth(): Promise<void> {
-        if (!window.gapi || !window.gapi.load) {
-            return Promise.reject("Couldn't find gapi.load");
-        }
-
-        // If we already have auth2, cool, we're done.
-        if(window.gapi.auth2) {
-            return Promise.resolve();
-        }
-
-        // Otherwise, pull in auth2.
-        return new Promise<void>(resolve => window.gapi.load("auth2", () => resolve()));
-    }
-
-    private signInWithGoogleAuth2(): Promise<SignInResult> {
-        if (!gapi?.auth2) {
-            return Promise.reject("gapi.auth2 wasn't loaded");
-        }
-
-        const auth = gapi.auth2.init({
-            client_id: this.clientId,
-            cookie_policy: "single_host_origin"
-        });
-
-        // Speed through the process if we're already signed in.
-        if (auth.isSignedIn.get()) {
-            const user = auth.currentUser.get();
-            return Promise.resolve(this.getSignInResultFromUser(user));
-        }
-            
-        // Otherwise, kick off the OAuth flow.
-        return auth.signIn()
-            .then(user => this.getSignInResultFromUser(user));
-    }
-
-    private getSignInResultFromUser(user: gapi.auth2.GoogleUser): SignInResult {
-        const profile = user.getBasicProfile();
-        const authResponse = user.getAuthResponse(true);
-        return {
-            email: profile.getEmail(),
-            name: profile.getName(),
-            imageUrl: profile.getImageUrl(),
-            accessToken: authResponse?.access_token,
-            accessTokenExpiration: new Date(authResponse.expires_at),
-            provider: "Google",
-            error: null,
-            providerData: user
-        };
-    }
 }

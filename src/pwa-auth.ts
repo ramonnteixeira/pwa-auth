@@ -42,6 +42,7 @@ export class PwaAuthImpl extends LitElement implements PwaAuth {
     @property({ type: String }) appleRedirectUri: string | undefined | null;
     @property({ type: String }) microsoftKey: string | undefined | null;
     @property({ type: String }) googleKey: string | undefined | null;
+    @property({ type: String }) googleSecretKey: string | undefined | null;
     @property({ type: String }) facebookKey: string | undefined | null;
     @property({ type: String }) appleKey: string | undefined | null;
     @property({ type: String }) credentialMode: "none" | "silent" | "prompt" = "silent";
@@ -56,6 +57,7 @@ export class PwaAuthImpl extends LitElement implements PwaAuth {
             name: "Microsoft",
             url: "https://graph.microsoft.com",
             getKey: () => this.microsoftKey,
+            getSecretKey: () => null,
             getButtonText: () => this.microsoftButtonText,
             getIconUrl: () => this.getMicrosoftIconUrl(),
             import: (key: string) => this.importMicrosoftProvider(key),
@@ -69,9 +71,10 @@ export class PwaAuthImpl extends LitElement implements PwaAuth {
             name: "Google",
             url: "https://account.google.com",
             getKey: () => this.googleKey,
+            getSecretKey: () => this.googleSecretKey,
             getButtonText: () => this.googleButtonText,
             getIconUrl: () => this.getGoogleIconUrl(),
-            import: (key: string) => this.importGoogleProvider(key),
+            import: (key: string, secretKey: string) => this.importGoogleProvider(key, secretKey),
             btnClass: "google-btn",
             buttonPartName: "googleButton",
             containerPartName: "googleContainer",
@@ -82,6 +85,7 @@ export class PwaAuthImpl extends LitElement implements PwaAuth {
             name: "Facebook",
             url: "https://www.facebook.com",
             getKey: () => this.facebookKey,
+            getSecretKey: () => null,
             getButtonText: () => this.facebookButtonText,
             getIconUrl: () => this.getFacebookIconUrl(),
             import: (key: string) => this.importFacebookProvider(key),
@@ -95,6 +99,7 @@ export class PwaAuthImpl extends LitElement implements PwaAuth {
             name: "Apple",
             url: "https://appleid.apple.com",
             getKey: () => this.appleKey,
+            getSecretKey: () => null,
             getButtonText: () => this.appleButtonText,
             getIconUrl: () => this.getAppleIconUrl(),
             import: (key: string) => this.importAppleProvider(key),
@@ -426,6 +431,7 @@ export class PwaAuthImpl extends LitElement implements PwaAuth {
 
     private signInWithProvider(provider: ProviderInfo) {
         const key = provider.getKey();
+        const secret = provider.getSecretKey && provider.getSecretKey();
         if (!key) {
             return Promise.reject("No key specified");
         }
@@ -444,7 +450,7 @@ export class PwaAuthImpl extends LitElement implements PwaAuth {
 
                 // Couldn't sign in with stored credential.
                 // Kick off the provider-specified OAuth flow.
-                return provider.import(key)
+                return provider.import(key, secret)
                     .then(p => p.signIn())
                     .catch(error => {
                         // If the provider sends back an error, consider that a SignInResult
@@ -470,9 +476,9 @@ export class PwaAuthImpl extends LitElement implements PwaAuth {
             .then(module => new module.MicrosoftProvider(key));
     }
 
-    private importGoogleProvider(key: string): Promise<SignInProvider> {
+    private importGoogleProvider(key: string, secretKey: string): Promise<SignInProvider> {
         return import("./google-provider")
-            .then(module => new module.GoogleProvider(key));
+            .then(module => new module.GoogleProvider(key, secretKey));
     }
 
     private importFacebookProvider(key: string): Promise<SignInProvider> {
@@ -601,7 +607,7 @@ export class PwaAuthImpl extends LitElement implements PwaAuth {
     private loadAllDependencies(): Promise<any> {
         const dependencyLoadTasks = this.providers
             .filter(p => !!p.getKey())
-            .map(p => p.import(p.getKey()!).then(p => p.loadDependencies()));
+            .map(p => p.import(p.getKey()!, p.getSecretKey()).then(p => p.loadDependencies()));
 
         return Promise.all(dependencyLoadTasks)
             .catch(error => console.error("Error loading dependencies", error));

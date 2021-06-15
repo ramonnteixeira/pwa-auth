@@ -33,6 +33,7 @@ export declare class PwaAuthImpl extends LitElement implements PwaAuth {
     appleRedirectUri: string | undefined | null;
     microsoftKey: string | undefined | null;
     googleKey: string | undefined | null;
+    googleSecretKey: string | undefined | null;
     facebookKey: string | undefined | null;
     appleKey: string | undefined | null;
     credentialMode: "none" | "silent" | "prompt";

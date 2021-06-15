@@ -26,6 +26,7 @@ let PwaAuthImpl = PwaAuthImpl_1 = class PwaAuthImpl extends LitElement {
                 name: "Microsoft",
                 url: "https://graph.microsoft.com",
                 getKey: () => this.microsoftKey,
+                getSecretKey: () => null,
                 getButtonText: () => this.microsoftButtonText,
                 getIconUrl: () => this.getMicrosoftIconUrl(),
                 import: (key) => this.importMicrosoftProvider(key),
@@ -39,9 +40,10 @@ let PwaAuthImpl = PwaAuthImpl_1 = class PwaAuthImpl extends LitElement {
                 name: "Google",
                 url: "https://account.google.com",
                 getKey: () => this.googleKey,
+                getSecretKey: () => this.googleSecretKey,
                 getButtonText: () => this.googleButtonText,
                 getIconUrl: () => this.getGoogleIconUrl(),
-                import: (key) => this.importGoogleProvider(key),
+                import: (key, secretKey) => this.importGoogleProvider(key, secretKey),
                 btnClass: "google-btn",
                 buttonPartName: "googleButton",
                 containerPartName: "googleContainer",
@@ -52,6 +54,7 @@ let PwaAuthImpl = PwaAuthImpl_1 = class PwaAuthImpl extends LitElement {
                 name: "Facebook",
                 url: "https://www.facebook.com",
                 getKey: () => this.facebookKey,
+                getSecretKey: () => null,
                 getButtonText: () => this.facebookButtonText,
                 getIconUrl: () => this.getFacebookIconUrl(),
                 import: (key) => this.importFacebookProvider(key),
@@ -65,6 +68,7 @@ let PwaAuthImpl = PwaAuthImpl_1 = class PwaAuthImpl extends LitElement {
                 name: "Apple",
                 url: "https://appleid.apple.com",
                 getKey: () => this.appleKey,
+                getSecretKey: () => null,
                 getButtonText: () => this.appleButtonText,
                 getIconUrl: () => this.getAppleIconUrl(),
                 import: (key) => this.importAppleProvider(key),
@@ -194,6 +198,7 @@ let PwaAuthImpl = PwaAuthImpl_1 = class PwaAuthImpl extends LitElement {
     }
     signInWithProvider(provider) {
         const key = provider.getKey();
+        const secret = provider.getSecretKey && provider.getSecretKey();
         if (!key) {
             return Promise.reject("No key specified");
         }
@@ -210,7 +215,7 @@ let PwaAuthImpl = PwaAuthImpl_1 = class PwaAuthImpl extends LitElement {
             }
             // Couldn't sign in with stored credential.
             // Kick off the provider-specified OAuth flow.
-            return provider.import(key)
+            return provider.import(key, secret)
                 .then(p => p.signIn())
                 .catch(error => {
                 // If the provider sends back an error, consider that a SignInResult
@@ -233,9 +238,9 @@ let PwaAuthImpl = PwaAuthImpl_1 = class PwaAuthImpl extends LitElement {
         return import("./microsoft-provider")
             .then(module => new module.MicrosoftProvider(key));
     }
-    importGoogleProvider(key) {
+    importGoogleProvider(key, secretKey) {
         return import("./google-provider")
-            .then(module => new module.GoogleProvider(key));
+            .then(module => new module.GoogleProvider(key, secretKey));
     }
     importFacebookProvider(key) {
         return import("./facebook-provider")
@@ -348,7 +353,7 @@ let PwaAuthImpl = PwaAuthImpl_1 = class PwaAuthImpl extends LitElement {
     loadAllDependencies() {
         const dependencyLoadTasks = this.providers
             .filter(p => !!p.getKey())
-            .map(p => p.import(p.getKey()).then(p => p.loadDependencies()));
+            .map(p => p.import(p.getKey(), p.getSecretKey()).then(p => p.loadDependencies()));
         return Promise.all(dependencyLoadTasks)
             .catch(error => console.error("Error loading dependencies", error));
     }
@@ -606,6 +611,9 @@ __decorate([
 __decorate([
     property({ type: String })
 ], PwaAuthImpl.prototype, "googleKey", void 0);
+__decorate([
+    property({ type: String })
+], PwaAuthImpl.prototype, "googleSecretKey", void 0);
 __decorate([
     property({ type: String })
 ], PwaAuthImpl.prototype, "facebookKey", void 0);
