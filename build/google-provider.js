@@ -45,14 +45,22 @@ export class GoogleProvider {
             client_id: this.clientId,
             cookie_policy: "single_host_origin"
         });
-        // Speed through the process if we're already signed in.
-        if (auth.isSignedIn.get()) {
-            const user = auth.currentUser.get();
-            return Promise.resolve(this.getSignInResultFromUser(user));
-        }
-        // Otherwise, kick off the OAuth flow.
-        return auth.signIn()
-            .then(user => this.getSignInResultFromUser(user));
+        const self = this;
+        return new Promise((resolve, reject) => {
+            auth.then(function success() {
+                // Speed through the process if we're already signed in.
+                if (auth.isSignedIn.get()) {
+                    const user = auth.currentUser.get();
+                    return resolve(self.getSignInResultFromUser(user));
+                }
+                // Otherwise, kick off the OAuth flow.
+                auth.signIn()
+                    .then(user => resolve(self.getSignInResultFromUser(user)));
+            }, function error(err) {
+                console.log('error', err);
+                reject(err);
+            });
+        });
     }
     getSignInResultFromUser(user) {
         const profile = user.getBasicProfile();
